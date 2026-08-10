@@ -133,12 +133,20 @@ type jsF32 struct {
 }
 
 func (b *jsF32) view(data []float32) js.Value {
-	if b.cap < len(data) {
-		b.arr = js.Global().Get("Float32Array").New(len(data))
-		b.cap = len(data)
+	if b.cap < len(data) || b.arr.IsUndefined() {
+		alloc := len(data)
+		if alloc == 0 {
+			// always hold a real array: a zero-length view must not
+			// leave b.arr undefined (an empty first frame would panic)
+			alloc = 1
+		}
+		b.arr = js.Global().Get("Float32Array").New(alloc)
+		b.cap = alloc
 	}
-	u8 := js.Global().Get("Uint8Array").New(b.arr.Get("buffer"), 0, len(data)*4)
-	js.CopyBytesToJS(u8, f32bytes(data))
+	if len(data) > 0 {
+		u8 := js.Global().Get("Uint8Array").New(b.arr.Get("buffer"), 0, len(data)*4)
+		js.CopyBytesToJS(u8, f32bytes(data))
+	}
 	return b.arr.Call("subarray", 0, len(data))
 }
 
@@ -434,6 +442,9 @@ func (r *glyphRenderer) render(model *renderModel) {
 		bufferLength += n
 	}
 
+	if bufferLength == 0 {
+		return // nothing to draw (empty viewport)
+	}
 	gl.Call("bindBuffer", glArrayBuffer, r.attributesBuf)
 	gl.Call("bufferData", glArrayBuffer, r.upload.view(r.activeBuf[:bufferLength]), glStreamDraw)
 
