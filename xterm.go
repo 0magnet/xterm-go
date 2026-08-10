@@ -31,13 +31,16 @@ type Terminal struct {
 
 	colors *ColorSet
 
-	element    js.Value // the .xterm root
-	viewport   js.Value // scrollbar area
-	scrollArea js.Value // spacer inside viewport
-	screen     js.Value // holds the rows
-	rowsEl     js.Value
-	textarea   js.Value // hidden input capture
-	rowEls     []js.Value
+	element         js.Value // the .xterm root
+	viewport        js.Value // scrollbar area
+	scrollArea      js.Value // spacer inside viewport
+	screen          js.Value // holds the rows
+	rowsEl          js.Value
+	textarea        js.Value // hidden input capture
+	compositionView js.Value // in-progress IME composition overlay
+	rowEls          []js.Value
+
+	composition *compositionHelper
 
 	cellW, cellH float64
 
@@ -103,9 +106,14 @@ func (t *Terminal) Open(parent js.Value) {
 	t.textarea.Set("autocomplete", "off")
 	t.textarea.Set("spellcheck", false)
 
+	t.compositionView = document.Call("createElement", "div")
+	t.compositionView.Set("className", "xterm-composition-view")
+	t.composition = newCompositionHelper(t, t.textarea, t.compositionView)
+
 	t.element.Call("appendChild", t.textarea)
 	t.element.Call("appendChild", t.viewport)
 	t.element.Call("appendChild", t.screen)
+	t.screen.Call("appendChild", t.compositionView)
 	parent.Call("appendChild", t.element)
 
 	t.measureCharSize()
@@ -276,9 +284,32 @@ func (t *Terminal) wireCoreEvents() {
 }
 
 func (t *Terminal) wireDomEvents() {
+	// IME composition
+	t.textarea.Call("addEventListener", "compositionstart", t.fn(func(js.Value, []js.Value) any {
+		t.composition.CompositionStart()
+		return nil
+	}))
+	t.textarea.Call("addEventListener", "compositionupdate", t.fn(func(_ js.Value, args []js.Value) any {
+		t.composition.CompositionUpdate(args[0].Get("data").String())
+		return nil
+	}))
+	t.textarea.Call("addEventListener", "compositionend", t.fn(func(js.Value, []js.Value) any {
+		t.composition.CompositionEnd()
+		return nil
+	}))
+
 	// keyboard
 	t.textarea.Call("addEventListener", "keydown", t.fn(func(_ js.Value, args []js.Value) any {
 		ev := args[0]
+		// route through the composition helper first; while composing,
+		// keys must reach the textarea/IME untouched
+		if !t.composition.Keydown(ev.Get("keyCode").Int()) {
+			b := t.Core.Buffer()
+			if b.YBase != b.YDisp {
+				t.Core.ScrollToBottom()
+			}
+			return nil
+		}
 		kev := &vt.KeyboardEvent{
 			AltKey:   ev.Get("altKey").Bool(),
 			CtrlKey:  ev.Get("ctrlKey").Bool(),
@@ -303,6 +334,12 @@ func (t *Terminal) wireDomEvents() {
 			return nil
 		}
 		if result.Key != "" {
+			// clear the textarea when ctrl+c or enter is sent so
+			// composition offsets don't drift (and screen readers
+			// announce deletions, like the original)
+			if result.Key == "\x03" || result.Key == "\r" {
+				t.textarea.Set("value", "")
+			}
 			// don't swallow browser shortcuts that produced no data
 			ev.Call("preventDefault")
 			ev.Call("stopPropagation")
@@ -739,6 +776,11 @@ func ensureStylesheet() {
 .xterm .xi { font-style: italic; }
 .xterm .xd { opacity: 0.5; }
 .xterm .xh { visibility: hidden; }
+.xterm .xterm-composition-view {
+  background: #000; color: #fff; border: 1px solid #555;
+  display: none; position: absolute; white-space: nowrap; z-index: 5;
+}
+.xterm .xterm-composition-view.active { display: block; }
 `
 	styleEl := document.Call("createElement", "style")
 	styleEl.Set("textContent", css)

@@ -63,6 +63,28 @@ func lastUTF16Unit(s string) int {
 	return int(units[len(units)-1])
 }
 
+// Utf16Units converts a string to UTF-16 code units (JS string
+// semantics — used by the browser layer for textarea value math).
+func Utf16Units(s string) []uint16 { return utf16Units(s) }
+
+// Utf16ToString converts UTF-16 code units back to a string.
+func Utf16ToString(units []uint16) string {
+	var sb []rune
+	for i := 0; i < len(units); i++ {
+		u := units[i]
+		if u >= 0xD800 && u <= 0xDBFF && i+1 < len(units) {
+			second := units[i+1]
+			if second >= 0xDC00 && second <= 0xDFFF {
+				sb = append(sb, rune(u-0xD800)*0x400+rune(second-0xDC00)+0x10000)
+				i++
+				continue
+			}
+		}
+		sb = append(sb, rune(u))
+	}
+	return string(sb)
+}
+
 func utf16Units(s string) []uint16 {
 	var units []uint16
 	for _, r := range s {
