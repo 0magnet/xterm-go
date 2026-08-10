@@ -8,12 +8,24 @@
 package xterm
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 	"syscall/js"
 
 	"github.com/0magnet/xterm-go/vt"
 )
+
+// renderer abstracts over the DOM and WebGL renderers.
+type renderer interface {
+	// renderRows redraws viewport rows start..end (inclusive).
+	renderRows(start, end int)
+	// onResize is called after the terminal dimensions changed.
+	onResize()
+	// onColorsChanged is called when the palette/theme changed.
+	onColorsChanged()
+	dispose()
+}
 
 var (
 	document = js.Global().Get("document")
@@ -41,6 +53,7 @@ type Terminal struct {
 	rowEls          []js.Value
 
 	composition *compositionHelper
+	renderer    renderer
 
 	cellW, cellH float64
 
@@ -119,6 +132,7 @@ func (t *Terminal) Open(parent js.Value) {
 	t.measureCharSize()
 	t.refreshRowEls()
 	t.updateScrollArea()
+	t.renderer = &domRenderer{t}
 	t.wireCoreEvents()
 	t.wireDomEvents()
 	t.scheduleRender(true)
@@ -219,6 +233,7 @@ func (t *Terminal) wireCoreEvents() {
 	t.Core.OnResize = func(cols, rows int) {
 		t.refreshRowEls()
 		t.updateScrollArea()
+		t.renderer.onResize()
 		t.scheduleRender(true)
 	}
 	t.Core.OnCursorMove = func() {
@@ -278,6 +293,7 @@ func (t *Terminal) wireCoreEvents() {
 			}
 		}
 		if changed {
+			t.renderer.onColorsChanged()
 			t.scheduleRender(true)
 		}
 	}
@@ -545,9 +561,17 @@ func (t *Terminal) render() {
 	if end < start {
 		return
 	}
+	t.renderer.renderRows(start, end)
+}
+
+// domRenderer is the default renderer: rows as divs of styled spans.
+type domRenderer struct{ t *Terminal }
+
+func (d *domRenderer) renderRows(start, end int) {
+	t := d.t
 	b := t.Core.Buffer()
 	cursorRow := -1
-	cursorVisible := !t.Core.CoreService().IsCursorHidden && t.blinkVisible && t.Core.Buffer().IsCursorInViewport()
+	cursorVisible := !t.Core.CoreService().IsCursorHidden && t.blinkVisible && b.IsCursorInViewport()
 	if cursorVisible {
 		cursorRow = b.YBase + b.Y - b.YDisp
 	}
@@ -563,6 +587,43 @@ func (t *Terminal) render() {
 		}
 		t.rowEls[y].Set("innerHTML", t.rowHTML(b.Lines.Get(lineIdx), cursorCol))
 	}
+}
+
+func (d *domRenderer) onResize()        {}
+func (d *domRenderer) onColorsChanged() {}
+func (d *domRenderer) dispose()         {}
+
+// EnableWebGL switches to the WebGL renderer (the addon-webgl
+// equivalent). On failure (no WebGL2 context) the DOM renderer stays
+// active and an error is returned.
+func (t *Terminal) EnableWebGL() error {
+	if !t.opened {
+		return errors.New("terminal is not opened")
+	}
+	if _, ok := t.renderer.(*webglRenderer); ok {
+		return nil
+	}
+	r, err := newWebglRenderer(t)
+	if err != nil {
+		return err
+	}
+	t.renderer.dispose()
+	t.rowsEl.Get("style").Set("display", "none")
+	t.renderer = r
+	t.scheduleRender(true)
+	return nil
+}
+
+// DisableWebGL switches back to the DOM renderer.
+func (t *Terminal) DisableWebGL() {
+	wr, ok := t.renderer.(*webglRenderer)
+	if !ok {
+		return
+	}
+	wr.dispose()
+	t.rowsEl.Get("style").Set("display", "")
+	t.renderer = &domRenderer{t}
+	t.scheduleRender(true)
 }
 
 // rowHTML builds a row's spans, splitting runs on attribute changes

@@ -13,7 +13,9 @@ xterm.js is the front-end terminal component used by VS Code, Hyper and Theia �
 - **Rich Unicode support**: CJK wide characters, combining characters, wcwidth tables ported from the UnicodeV6 provider.
 - **Scrollback**: ring-buffer scrollback with reflow on resize, native scrollbar viewport in the browser layer.
 - **Self-contained**: no JS dependencies; styles are injected automatically.
-- **Small**: ~630 KB wasm with TinyGo (≈3.6 MB with standard Go).
+- **GPU-accelerated**: an optional WebGL2 renderer (the `addon-webgl` equivalent) draws the grid as instanced quads sampling a glyph texture atlas, with pixel-perfect procedural box drawing, block, shade and powerline glyphs. Enable with `term.EnableWebGL()`; it falls back to the DOM renderer when WebGL2 is unavailable.
+- **IME support**: composition events (CJK input methods, dead keys) are handled with an in-place composition view like xterm.js.
+- **Small**: ~850 KB wasm with TinyGo (≈4 MB with standard Go).
 
 ## What xterm-go is not
 
@@ -102,11 +104,21 @@ line := term.Buffer().Lines.Get(1).TranslateToString(true, 0, -1)
 
 - Building the web terminal for [skywire](https://github.com/skycoin/skywire)'s wasm hypervisor UI, replacing the bundled xterm.js + fit/attach/webgl addons.
 
+### WebGL renderer
+
+```go
+if err := term.EnableWebGL(); err != nil {
+	// WebGL2 unavailable — the DOM renderer stays active
+}
+// term.DisableWebGL() switches back
+```
+
 ## Differences from xterm.js
 
-- The renderer is a DOM renderer; the canvas/WebGL renderers are not ported.
 - Parser handlers are synchronous (Go has no reason for the async parse-stack machinery).
-- Accessibility tree, link decorations, IME composition and the selection service are not (yet) ported; text selection uses the browser's native selection.
+- The WebGL renderer uses a single 2048² atlas page (cleared and lazily rebuilt on overflow) instead of the multi-page grow/merge machinery, and does not port the selection/decoration/ligature-joiner model overrides or the minimum-contrast-ratio option.
+- The deprecated canvas renderer is not ported (DOM and WebGL are).
+- Accessibility tree, link decorations and the selection service are not (yet) ported; text selection uses the browser's native selection (DOM renderer).
 - Windows conpty wrapping heuristics are not ported.
 
 ## Contributing

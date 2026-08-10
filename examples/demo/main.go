@@ -109,6 +109,15 @@ func main() {
 	term.Open(container)
 	term.Fit()
 
+	// use the WebGL renderer unless ?renderer=dom is given
+	rendererName := "webgl"
+	search := js.Global().Get("location").Get("search").String()
+	if strings.Contains(search, "renderer=dom") {
+		rendererName = "dom"
+	} else if err := term.EnableWebGL(); err != nil {
+		rendererName = "dom (webgl unavailable: " + err.Error() + ")"
+	}
+
 	term.OnTitleChange = func(title string) {
 		doc.Set("title", title)
 	}
@@ -125,6 +134,7 @@ func main() {
 	sh.write("\x1b[1;36m╔══════════════════════════════════════╗\r\n")
 	sh.write("║  xterm-go — xterm.js ported to Go    ║\r\n")
 	sh.write("╚══════════════════════════════════════╝\x1b[0m\r\n")
+	sh.write("renderer: \x1b[1;33m" + rendererName + "\x1b[0m (\x1b[4m?renderer=dom\x1b[0m to switch)\r\n")
 	sh.write("type \x1b[1mhelp\x1b[0m for demo commands\r\n\r\n")
 	sh.write(prompt)
 
