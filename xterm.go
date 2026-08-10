@@ -57,6 +57,7 @@ type Terminal struct {
 
 	cellW, cellH float64
 
+	keyDownHandled        bool
 	renderQueued          bool
 	allDirty              bool
 	dirtyStart, dirtyEnd  int
@@ -349,6 +350,7 @@ func (t *Terminal) wireDomEvents() {
 		case vt.KeySelectAll:
 			return nil
 		}
+		t.keyDownHandled = false
 		if result.Key != "" {
 			// clear the textarea when ctrl+c or enter is sent so
 			// composition offsets don't drift (and screen readers
@@ -359,9 +361,30 @@ func (t *Terminal) wireDomEvents() {
 			// don't swallow browser shortcuts that produced no data
 			ev.Call("preventDefault")
 			ev.Call("stopPropagation")
+			t.keyDownHandled = true
 			t.Core.Input(result.Key, true)
 		} else if result.Cancel {
 			ev.Call("preventDefault")
+		}
+		return nil
+	}))
+
+	// keypress: keys evaluateKeyboardEvent leaves alone (space and
+	// third-level-shift characters) arrive here, like the _keyPress
+	// path of the original
+	t.textarea.Call("addEventListener", "keypress", t.fn(func(_ js.Value, args []js.Value) any {
+		ev := args[0]
+		if t.keyDownHandled {
+			return nil
+		}
+		key := ev.Get("key").String()
+		if ev.Get("ctrlKey").Bool() || ev.Get("metaKey").Bool() {
+			return nil
+		}
+		if len(vt.Utf16Units(key)) == 1 {
+			ev.Call("preventDefault")
+			ev.Call("stopPropagation")
+			t.Core.Input(key, true)
 		}
 		return nil
 	}))
