@@ -1,7 +1,8 @@
 package vt
 
-// maxBufferSize caps the scrollback length.
-const maxBufferSize = 4294967295
+// maxBufferSize caps the scrollback length (xterm.js uses 2^32-1; we
+// clamp to int32 max so the constant also fits tinygo's 32-bit int).
+const maxBufferSize = 1<<31 - 1
 
 // Charset maps input glyphs to replacement strings (port of ICharset).
 type Charset map[byte]rune
