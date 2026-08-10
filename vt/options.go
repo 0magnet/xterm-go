@@ -23,6 +23,23 @@ type Options struct {
 	WindowsMode bool
 	// ReflowCursorLine reflows the cursor line on resize. Default: false.
 	ReflowCursorLine bool
+	// TermName reported by DA sequences. Default: "xterm".
+	TermName string
+	// CursorStyle: "block", "underline" or "bar". Default: "block".
+	CursorStyle string
+	// ScrollOnUserInput snaps the viewport to the bottom on input.
+	// Default: true.
+	ScrollOnUserInput bool
+	// ScrollOnEraseInDisplay scrolls content into scrollback on ED 2
+	// instead of clearing it. Default: false.
+	ScrollOnEraseInDisplay bool
+	// ScrollSensitivity scaling for wheel scroll. Default: 1.
+	ScrollSensitivity float64
+	// FastScrollSensitivity applied while the modifier is held. Default: 5.
+	FastScrollSensitivity float64
+	// WindowOptions enables individual CSI t window commands (all
+	// default false, security).
+	WindowOptions WindowOptions
 	// FontFamily/FontSize used by the renderer.
 	FontFamily string
 	FontSize   float64
@@ -59,16 +76,48 @@ type Theme struct {
 	BrightWhite         string
 }
 
+// WindowOptions gates the CSI t window manipulation commands (port of
+// IWindowOptions; everything defaults to off like in xterm.js).
+type WindowOptions struct {
+	RestoreWin          bool
+	MinimizeWin         bool
+	SetWinPosition      bool
+	SetWinSizePixels    bool
+	RaiseWin            bool
+	LowerWin            bool
+	RefreshWin          bool
+	SetWinSizeChars     bool
+	MaximizeWin         bool
+	FullscreenWin       bool
+	GetWinState         bool
+	GetWinPosition      bool
+	GetWinSizePixels    bool
+	GetScreenSizePixels bool
+	GetCellSizePixels   bool
+	GetWinSizeChars     bool
+	GetScreenSizeChars  bool
+	GetIconTitle        bool
+	GetWinTitle         bool
+	PushTitle           bool
+	PopTitle            bool
+	SetWinLines         bool
+}
+
 // NewOptions returns options with xterm.js defaults.
 func NewOptions() *Options {
 	return &Options{
-		Cols:          80,
-		Rows:          24,
-		Scrollback:    1000,
-		TabStopWidth:  8,
-		FontFamily:    "monospace",
-		FontSize:      15,
-		LineHeight:    1.0,
-		LetterSpacing: 0,
+		Cols:                  80,
+		Rows:                  24,
+		Scrollback:            1000,
+		TabStopWidth:          8,
+		FontFamily:            "monospace",
+		FontSize:              15,
+		LineHeight:            1.0,
+		LetterSpacing:         0,
+		TermName:              "xterm",
+		CursorStyle:           "block",
+		ScrollOnUserInput:     true,
+		ScrollSensitivity:     1,
+		FastScrollSensitivity: 5,
 	}
 }
