@@ -16,7 +16,7 @@ func newTestTerminal(cols, rows int) *Terminal {
 // line returns the trimmed text of viewport row y.
 func line(term *Terminal, y int) string {
 	b := term.Buffer()
-	return b.Lines.Get(b.YBase + y).TranslateToString(true, 0, -1)
+	return b.Lines.Get(b.YBase+y).TranslateToString(true, 0, -1)
 }
 
 func TestTermPrintAndWrap(t *testing.T) {
@@ -92,7 +92,7 @@ func TestTermEraseInLine(t *testing.T) {
 	term := newTestTerminal(20, 5)
 	term.WriteString("hello world welt")
 	term.WriteString("\x1b[1;7H") // on 'w' of world
-	term.WriteString("\x1b[K") // erase to right
+	term.WriteString("\x1b[K")    // erase to right
 	// the typed space at col 6 is real content and survives trimming
 	if got := line(term, 0); got != "hello " {
 		t.Fatalf("EL0 = %q", got)
@@ -348,7 +348,7 @@ func TestTermTabStops(t *testing.T) {
 		t.Fatalf("tab: x=%d", term.Buffer().X)
 	}
 	// set custom stop at 3, clear all defaults first
-	term.WriteString("\r\x1b[3g")     // clear all tab stops
+	term.WriteString("\r\x1b[3g")      // clear all tab stops
 	term.WriteString("\x1b[1;4H\x1bH") // HTS at col 3
 	term.WriteString("\r\t")
 	if term.Buffer().X != 3 {
@@ -591,13 +591,13 @@ func TestWcwidth(t *testing.T) {
 	}{
 		{'a', 1},
 		{0x00, 0},
-		{0x0301, 0},    // combining acute
-		{0x4E16, 2},    // 世
-		{0x1F600, 1},   // emoji (V6 tables: width 1)
-		{0x20000, 2},   // CJK ext B
-		{0xE0100, 0},   // variation selector
-		{0x1160, 0},    // hangul jungseong filler (combining range)
-		{0x303F, 1},    // explicitly narrow inside wide block
+		{0x0301, 0},  // combining acute
+		{0x4E16, 2},  // 世
+		{0x1F600, 1}, // emoji (V6 tables: width 1)
+		{0x20000, 2}, // CJK ext B
+		{0xE0100, 0}, // variation selector
+		{0x1160, 0},  // hangul jungseong filler (combining range)
+		{0x303F, 1},  // explicitly narrow inside wide block
 	}
 	for _, c := range cases {
 		if got := Wcwidth(c.cp); got != c.want {

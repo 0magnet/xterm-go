@@ -176,7 +176,7 @@ func TestUtf8DecoderAcrossChunks(t *testing.T) {
 			target := make([]uint32, len(chunk)+4)
 			n := dec.Decode(chunk, target)
 			for i := 0; i < n; i++ {
-				out = append(out, rune(target[i]))
+				out = append(out, rune(target[i])) // #nosec G115 -- ASCII test fixtures
 			}
 		}
 		if string(out) != full {
@@ -231,7 +231,7 @@ func TestBufferBasics(t *testing.T) {
 	line := b.Lines.Get(0)
 	attrs := NewAttributeData()
 	for i, r := range "hello" {
-		line.SetCellFromCodepoint(i, uint32(r), 1, attrs)
+		line.SetCellFromCodepoint(i, uint32(r), 1, attrs) // #nosec G115 -- ASCII test fixtures
 	}
 	if s := line.TranslateToString(true, 0, -1); s != "hello" {
 		t.Fatalf("line = %q", s)
@@ -257,7 +257,7 @@ func TestBufferResizeReflowSmaller(t *testing.T) {
 	// a 10-wide line of "abcdefghij" that must wrap when cols -> 5
 	line := b.Lines.Get(0)
 	for i, r := range "abcdefghij" {
-		line.SetCellFromCodepoint(i, uint32(r), 1, attrs)
+		line.SetCellFromCodepoint(i, uint32(r), 1, attrs) // #nosec G115 -- ASCII test fixtures
 	}
 	b.Resize(5, 5)
 	first := b.Lines.Get(0).TranslateToString(true, 0, -1)
