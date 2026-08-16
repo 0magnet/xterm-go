@@ -6,9 +6,15 @@ package xterm
 // RectangleRenderer, RenderModel and WebglUtils. Backgrounds and
 // glyphs are drawn as instanced quads; glyphs sample the texture
 // atlas. Divergences from upstream: single atlas page (one sampler in
-// the fragment shader), no selection/decoration/ligature-joiner
-// overrides in the color resolver, cursor blink comes from the
-// terminal's shared blink timer instead of CursorBlinkStateManager.
+// the fragment shader), no decoration or ligature-joiner overrides in
+// the color resolver, cursor blink comes from the terminal's shared
+// blink timer instead of CursorBlinkStateManager.
+//
+// The selection is the one place this does more than the addon rather
+// than less. xterm.js leaves selecting to the DOM, which cannot work
+// here because these rows are hidden and the text is a texture; see
+// selection.go, which keeps the selection as buffer cells so that both
+// renderers can draw it.
 
 import (
 	"errors"
@@ -881,6 +887,7 @@ func (r *webglRenderer) updateModel(start, end int) {
 
 	cursorAccentRGB := cssToRGB(term.colors.CursorAccent)
 	cursorRGB := cssToRGB(term.colors.Cursor)
+	selected := term.sel.valid()
 
 	var lastBg uint32
 	for y := start; y <= end; y++ {
@@ -901,9 +908,17 @@ func (r *webglRenderer) updateModel(start, end int) {
 			code := uint32(cell.GetCode()) // #nosec G115 -- a cell code is a Unicode codepoint
 			i := (y*cols + x) * modelIndiciesPerCell
 
-			// resolve colors (no selection/decoration overrides)
+			// resolve colors (no decoration overrides)
 			resFg := cell.Fg
 			resBg := cell.Bg
+			// A selected cell is drawn in the selection's colors, which the
+			// background rectangles and the glyphs then pick up on their own —
+			// there is no separate selection layer to keep in step, and the
+			// model's unchanged-cell check redraws exactly the cells whose
+			// selected-ness changed.
+			if selected && term.sel.contains(x, row) {
+				resFg, resBg = term.selectionColors(resFg, resBg)
+			}
 			var resExt uint32
 			if cell.Bg&vt.BgHasExtended != 0 && cell.Extended != nil {
 				resExt = cell.Extended.Ext()
