@@ -52,8 +52,9 @@ type Terminal struct {
 	compositionView js.Value // in-progress IME composition overlay
 	rowEls          []js.Value
 
-	composition *compositionHelper
-	renderer    renderer
+	composition    *compositionHelper
+	renderer       renderer
+	resizeObserver js.Value // set by AutoFit
 
 	cellW, cellH float64
 
@@ -785,6 +786,44 @@ func (t *Terminal) Fit() {
 	}
 }
 
+// AutoFit keeps the terminal fitted to its parent for as long as it is open,
+// by observing the parent element rather than the window.
+//
+// Listening for the window's resize event is not enough, and the difference
+// matters as soon as the terminal is not the whole page. A terminal inside a
+// draggable window, a split pane, or a collapsing sidebar is resized by its
+// container changing size while the window never does — no resize event is
+// fired, Fit is never called, and the terminal keeps the dimensions it had when
+// it was opened, overflowing or under-filling whatever now holds it.
+//
+// Calling it more than once is harmless. The observer is released by Dispose.
+func (t *Terminal) AutoFit() {
+	if !t.opened || t.resizeObserver.Truthy() {
+		return
+	}
+	parent := t.element.Get("parentElement")
+	if parent.IsNull() || parent.IsUndefined() {
+		return
+	}
+	ctor := js.Global().Get("ResizeObserver")
+	if !ctor.Truthy() {
+		// Every browser with WebAssembly has had ResizeObserver for years,
+		// but falling back to the window keeps this from being worse than
+		// not calling it at all.
+		js.Global().Call("addEventListener", "resize", t.fn(func(js.Value, []js.Value) any {
+			t.Fit()
+			return nil
+		}))
+		return
+	}
+	t.resizeObserver = ctor.New(t.fn(func(js.Value, []js.Value) any {
+		t.Fit()
+		return nil
+	}))
+	t.resizeObserver.Call("observe", parent)
+	t.Fit()
+}
+
 // Attach connects the terminal to a WebSocket carrying pty data (the
 // attach addon equivalent). bidirectional=false makes it read-only.
 func (t *Terminal) Attach(ws js.Value, bidirectional bool) {
@@ -825,6 +864,10 @@ func (t *Terminal) Attach(ws js.Value, bidirectional bool) {
 
 // Dispose releases all registered JS callbacks and removes the DOM.
 func (t *Terminal) Dispose() {
+	if t.resizeObserver.Truthy() {
+		t.resizeObserver.Call("disconnect")
+		t.resizeObserver = js.Value{}
+	}
 	if t.opened && !t.element.IsUndefined() {
 		parent := t.element.Get("parentElement")
 		if !parent.IsNull() && !parent.IsUndefined() {
@@ -852,6 +895,16 @@ func ensureStylesheet() {
   width: 0; height: 0; z-index: -5; white-space: nowrap; overflow: hidden; resize: none;
 }
 .xterm .xterm-viewport { position: absolute; top: 0; right: 0; bottom: 0; left: 0; overflow-y: scroll; cursor: default; }
+/* The viewport scrolls, so it carries the browser's default scrollbar: a light
+   strip down the right-hand side of a terminal that is usually dark. Nothing
+   downstream can reach it without knowing this class name, so it is styled
+   here, where the element is created. */
+.xterm .xterm-viewport { scrollbar-width: thin; scrollbar-color: #4a4f57 transparent; }
+.xterm .xterm-viewport::-webkit-scrollbar { width: 10px; }
+.xterm .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
+.xterm .xterm-viewport::-webkit-scrollbar-thumb { background: #4a4f57; border-radius: 5px; }
+.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover { background: #6b727c; }
+.xterm .xterm-viewport::-webkit-scrollbar-corner { background: transparent; }
 .xterm .xterm-screen { position: relative; z-index: 1; }
 .xterm .xterm-rows { line-height: normal; letter-spacing: 0; white-space: pre; user-select: text; cursor: text; }
 .xterm .xterm-rows > div { overflow: hidden; }
