@@ -50,6 +50,12 @@ type Terminal struct {
 	// a terminal should make for everyone.
 	CopyOnSelect bool
 
+	// NoContextMenu leaves the right button to the browser. The terminal draws
+	// its own menu by default, because a browser's Copy acts on the document's
+	// selection and the terminal's is not one — so the browser offers no Copy
+	// over a terminal however much is highlighted.
+	NoContextMenu bool
+
 	colors *ColorSet
 
 	element         js.Value // the .xterm root
@@ -67,6 +73,7 @@ type Terminal struct {
 
 	sel      *selection
 	selInput selectionInput
+	menu     *contextMenu
 
 	cellW, cellH float64
 
@@ -458,6 +465,7 @@ func (t *Terminal) wireDomEvents() {
 	// A drag carries on wherever the pointer goes, so the rest of it is
 	// watched on the document.
 	t.wireSelection()
+	t.wireContextMenu()
 
 	// wheel: scroll our own viewport (or report to the app)
 	t.element.Call("addEventListener", "wheel", t.fn(func(_ js.Value, args []js.Value) any {
@@ -921,6 +929,7 @@ func (t *Terminal) Attach(ws js.Value, bidirectional bool) {
 
 // Dispose releases all registered JS callbacks and removes the DOM.
 func (t *Terminal) Dispose() {
+	t.menu.hide()
 	t.unwireSelection()
 	if t.resizeObserver.Truthy() {
 		t.resizeObserver.Call("disconnect")
@@ -981,7 +990,7 @@ func ensureStylesheet() {
   display: none; position: absolute; white-space: nowrap; z-index: 5;
 }
 .xterm .xterm-composition-view.active { display: block; }
-`
+` + contextMenuCSS
 	styleEl := document.Call("createElement", "style")
 	styleEl.Set("textContent", css)
 	document.Get("head").Call("appendChild", styleEl)
