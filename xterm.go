@@ -79,6 +79,7 @@ type Terminal struct {
 
 	keyDownHandled       bool
 	renderQueued         bool
+	fitQueued            bool
 	allDirty             bool
 	dirtyStart, dirtyEnd int
 	syncingScroll        bool
@@ -601,6 +602,36 @@ func (t *Terminal) markCursorRowDirty() {
 	}
 }
 
+// scheduleFit refits on the next frame rather than inside the notification.
+//
+// A ResizeObserver fires for every step of a layout, so a window being dragged
+// or a desktop arranging itself produces a burst of them, and refitting inside
+// each one reflows the buffer that many times to reach one final size.
+//
+// It also keeps Fit out of the callback itself. Compiled with TinyGo, calling
+// into JavaScript from inside a ResizeObserver notification returned an
+// address the shim would not store to —
+//
+//	RangeError: Offset is outside the bounds of the DataView
+//	  at storeValue -> syscall/js.valueCall -> Terminal.Fit -> AutoFit
+//
+// — thrown once per notification, which under a window manager is constant.
+// Deferring to an animation frame does the same work outside that reentrancy.
+func (t *Terminal) scheduleFit() {
+	if t.fitQueued || !t.opened {
+		return
+	}
+	t.fitQueued = true
+	var raf js.Func
+	raf = js.FuncOf(func(js.Value, []js.Value) any {
+		t.fitQueued = false
+		t.Fit()
+		raf.Release()
+		return nil
+	})
+	window.Call("requestAnimationFrame", raf)
+}
+
 func (t *Terminal) scheduleRender(all bool) {
 	if all {
 		t.allDirty = true
@@ -876,13 +907,13 @@ func (t *Terminal) AutoFit() {
 		// but falling back to the window keeps this from being worse than
 		// not calling it at all.
 		js.Global().Call("addEventListener", "resize", t.fn(func(js.Value, []js.Value) any {
-			t.Fit()
+			t.scheduleFit()
 			return nil
 		}))
 		return
 	}
 	t.resizeObserver = ctor.New(t.fn(func(js.Value, []js.Value) any {
-		t.Fit()
+		t.scheduleFit()
 		return nil
 	}))
 	t.resizeObserver.Call("observe", parent)
