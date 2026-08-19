@@ -99,10 +99,10 @@ func (t *Terminal) selectionMouseUp() {
 // select to the end of the row.
 func (t *Terminal) selectionPos(ev js.Value) pos {
 	col, row, _, _ := t.mouseCell(ev)
-	col = clampInt(col, t.Core.Cols()-1, 0)
-	row = clampInt(row, t.Core.Rows()-1, 0)
+	col = clampInt(col, t.Core.Cols()-1)
+	row = clampInt(row, t.Core.Rows()-1)
 	b := t.Core.Buffer()
-	return pos{col: col, line: clampInt(b.YDisp+row, b.Lines.Length()-1, 0)}
+	return pos{col: col, line: clampInt(b.YDisp+row, b.Lines.Length()-1)}
 }
 
 // selectionAutoScroll keeps a drag going once it reaches the top or bottom of
@@ -143,7 +143,7 @@ func (t *Terminal) startAutoScroll(by int) {
 		if by > 0 {
 			row = t.Core.Rows() - 1
 		}
-		t.sel.extend(pos{col: t.sel.focus.col, line: clampInt(b.YDisp+row, b.Lines.Length()-1, 0)})
+		t.sel.extend(pos{col: t.sel.focus.col, line: clampInt(b.YDisp+row, b.Lines.Length()-1)})
 		t.scheduleRender(false)
 		return nil
 	})
@@ -320,7 +320,7 @@ func (t *Terminal) markSelectionDirty(start, end pos) {
 	if last < 0 || first > t.Core.Rows()-1 {
 		return
 	}
-	t.markDirty(clampInt(first, t.Core.Rows()-1, 0), clampInt(last, t.Core.Rows()-1, 0))
+	t.markDirty(clampInt(first, t.Core.Rows()-1), clampInt(last, t.Core.Rows()-1))
 }
 
 func (t *Terminal) notifySelection() {

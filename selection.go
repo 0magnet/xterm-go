@@ -337,7 +337,10 @@ func (s *selection) extend(p pos) {
 }
 
 // finish ends a drag, leaving whatever it selected in place.
-func (s *selection) finish() {
+//
+// Only selection_js.go calls it, and that file is js/wasm-only, so a
+// host-context lint sees no caller and reports this as dead.
+func (s *selection) finish() { //nolint:unused
 	if !s.active {
 		return
 	}

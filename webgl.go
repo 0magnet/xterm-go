@@ -866,8 +866,8 @@ func (r *webglRenderer) updateModel(start, end int) {
 	b := core.Buffer()
 	cell := r.workCell
 
-	start = clampInt(start, rows-1, 0)
-	end = clampInt(end, rows-1, 0)
+	start = clampInt(start, rows-1)
+	end = clampInt(end, rows-1)
 
 	cursorStyle := term.cursorStyle()
 	cursorY := b.YBase + b.Y
@@ -987,12 +987,14 @@ func (r *webglRenderer) updateModel(start, end int) {
 	r.rects.updateCursor(&r.model)
 }
 
-func clampInt(value, max, min int) int {
+// clampInt confines a value to 0..max. Every caller clamps an index into a
+// row, column or line count, so the lower bound was always zero.
+func clampInt(value, max int) int {
 	if value > max {
 		return max
 	}
-	if value < min {
-		return min
+	if value < 0 {
+		return 0
 	}
 	return value
 }
