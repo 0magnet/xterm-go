@@ -19,7 +19,7 @@ import (
 // Terminal.OnResize is the safe hook. These tests say it fires, and that it
 // cannot displace the handler it is fanned out from.
 
-func openTestTerminal(t *testing.T) (*Terminal, js.Value) {
+func openTestTerminal(t *testing.T) *Terminal {
 	t.Helper()
 	doc := js.Global().Get("document")
 	if !doc.Truthy() {
@@ -34,11 +34,11 @@ func openTestTerminal(t *testing.T) (*Terminal, js.Value) {
 	term := New(vt.NewOptions())
 	term.Open(host)
 	t.Cleanup(term.Dispose)
-	return term, host
+	return term
 }
 
 func TestOnResizeFires(t *testing.T) {
-	term, _ := openTestTerminal(t)
+	term := openTestTerminal(t)
 
 	var gotCols, gotRows, calls int
 	term.OnResize = func(cols, rows int) {
@@ -61,7 +61,7 @@ func TestOnResizeDoesNotDisplaceTheRenderer(t *testing.T) {
 	// renderer never hearing about the new grid. So the assertion is that the
 	// terminal is CONSISTENT afterwards: the core agrees with what the hook was
 	// told, and drawing at the new size does not panic.
-	term, _ := openTestTerminal(t)
+	term := openTestTerminal(t)
 
 	var told int
 	term.OnResize = func(cols, _ int) { told = cols }
@@ -87,7 +87,7 @@ func TestOnResizeDoesNotDisplaceTheRenderer(t *testing.T) {
 
 func TestOnResizeIsOptional(t *testing.T) {
 	// A nil hook is the common case and must not be called.
-	term, _ := openTestTerminal(t)
+	term := openTestTerminal(t)
 	term.Core.Resize(90, 25)
 	if term.Core.Cols() != 90 {
 		t.Errorf("core is %d columns, want 90", term.Core.Cols())
