@@ -40,6 +40,12 @@ func (t *Terminal) selectionMouseDown(ev js.Value) bool {
 		return false
 	}
 	if t.Core.MouseService().AreMouseEventsActive() && !ev.Get("shiftKey").Bool() {
+		// The application gets the press — but a standing selection still
+		// goes, because this is the click that would have replaced it if
+		// the application were not listening. Without this, a selection
+		// taken with shift over a full-screen UI stays painted across it
+		// and no click can dismiss it.
+		t.ClearSelection()
 		return false
 	}
 
