@@ -133,6 +133,15 @@ Copyright (c) 2017-2022, The xterm.js authors (MIT License)<br>
 Copyright (c) 2014-2016, SourceLair Private Company (MIT License)<br>
 Copyright (c) 2012-2013, Christopher Jeffrey (MIT License)<br>
 Go port copyright (c) 2026 (MIT License)
+
+## Related projects
+
+Other browser terminal emulators and terminal emulation libraries:
+
+- [ghostty-web](https://github.com/coder/ghostty-web) — Ghostty's terminal emulation compiled to WebAssembly behind an xterm.js-compatible API (MIT)
+- [wterm](https://wterm.dev/) — a DOM-rendered web terminal with a Zig/WebAssembly or Ghostty core
+- [go-te](https://github.com/rcarmo/go-te) — a VT100–VT520 terminal emulation library in Go, with pyte and esctest conformance (MIT)
+
 ## Dependency Graph
 
 Made with [goda](https://github.com/loov/goda):
