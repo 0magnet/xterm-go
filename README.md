@@ -68,7 +68,7 @@ tinygo build -target wasm -no-debug -o main.wasm .
 
 ### Options
 
-`xterm.New` takes `*vt.Options` (pass `nil` for defaults): dimensions, scrollback length, fonts, cursor style/blink, a `Theme` with the standard 16 colors, and more — mirroring the xterm.js options relevant to the port.
+`xterm.New` takes `*vt.Options` (pass `nil` for defaults): dimensions, scrollback length, fonts, cursor style/blink, a `Theme` with the standard 16 colors (set `Theme.Generate256` to derive colors 16–255 from them in CIELAB), and more — mirroring the xterm.js options relevant to the port.
 
 ```go
 opts := vt.NewOptions()
