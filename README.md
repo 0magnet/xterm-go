@@ -12,7 +12,7 @@ xterm.js is the front-end terminal component used by VS Code, Hyper and Theia �
 
 - **Terminal apps just work**: the full escape-sequence machinery of xterm.js is ported — cursor addressing, scroll regions, the alternate screen buffer, insert/delete, SGR text styling (16/256/truecolor, underline styles), charsets, device reports (DA/DSR/DECRQM/DECRQSS) and mouse tracking (X10/VT200/DRAG/ANY with SGR encoding) for curses apps.
 - **Headless-capable core**: the `vt` subpackage (parser, buffers, input handler) is pure Go with zero dependencies — it builds natively, so terminal semantics are tested with plain `go test`, no browser needed. Use it standalone to interpret pty output server-side.
-- **Rich Unicode support**: CJK wide characters, combining characters, wcwidth tables ported from the UnicodeV6 provider.
+- **Rich Unicode support**: CJK wide characters, combining characters, wcwidth tables ported from the UnicodeV6 provider, and opt-in grapheme clustering (mode 2027, UAX #29 on Unicode 17 tables) for ZWJ emoji, flags and conjuncts.
 - **Scrollback**: ring-buffer scrollback with reflow on resize, native scrollbar viewport in the browser layer.
 - **Self-contained**: no JS dependencies; styles are injected automatically.
 - **GPU-accelerated**: an optional WebGL2 renderer (the `addon-webgl` equivalent) draws the grid as instanced quads sampling a glyph texture atlas, with pixel-perfect procedural box drawing, block, shade and powerline glyphs. Enable with `term.EnableWebGL()`; it falls back to the DOM renderer when WebGL2 is unavailable.

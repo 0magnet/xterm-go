@@ -451,6 +451,10 @@ func (h *InputHandler) Print(data []uint32, start, end int) {
 	}
 
 	precedingJoinState := uint32(h.parser.PrecedingJoinState) // #nosec G115 -- Unicode codepoints and the parser's join state
+	charProperties := CharProperties
+	if h.coreService.DecPrivateModes.GraphemeClustering {
+		charProperties = GraphemeCharProperties
+	}
 	for pos := start; pos < end; pos++ {
 		code := data[pos]
 
@@ -461,7 +465,7 @@ func (h *InputHandler) Print(data []uint32, start, end int) {
 			}
 		}
 
-		currentInfo := CharProperties(code, precedingJoinState)
+		currentInfo := charProperties(code, precedingJoinState)
 		chWidth := ExtractWidth(currentInfo)
 		shouldJoin := ExtractShouldJoin(currentInfo)
 		oldWidth := 0
@@ -1278,6 +1282,9 @@ func (h *InputHandler) SetModePrivate(params *Params) bool {
 			h.coreService.DecPrivateModes.BracketedPasteMode = true
 		case 2026: // synchronized output
 			h.coreService.DecPrivateModes.SynchronizedOutput = true
+		case 2027: // grapheme cluster mode
+			h.coreService.DecPrivateModes.GraphemeClustering = true
+			h.parser.PrecedingJoinState = 0
 		}
 	}
 	return true
@@ -1356,6 +1363,9 @@ func (h *InputHandler) ResetModePrivate(params *Params) bool {
 			if h.OnRequestRefreshRows != nil {
 				h.OnRequestRefreshRows(-1, -1)
 			}
+		case 2027:
+			h.coreService.DecPrivateModes.GraphemeClustering = false
+			h.parser.PrecedingJoinState = 0
 		}
 	}
 	return true
@@ -1462,6 +1472,8 @@ func (h *InputHandler) RequestMode(params *Params, ansi bool) bool {
 		return f(p, b2v(dm.BracketedPasteMode))
 	case 2026:
 		return f(p, b2v(dm.SynchronizedOutput))
+	case 2027:
+		return f(p, b2v(dm.GraphemeClustering))
 	}
 	return f(p, modeNotRecognized)
 }
