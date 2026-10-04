@@ -1,6 +1,7 @@
 package vt
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -50,5 +51,32 @@ func TestPlainLinesHaveNoMaps(t *testing.T) {
 	}
 	if c := b.Lines.Get(b.YBase).Clone(); c.combined != nil || c.extendedAttrs != nil {
 		t.Errorf("clone of a plain line has maps")
+	}
+}
+
+// TestParseBufferIsNotKeptPerTerminal: a large write used to leave its
+// decode buffer, up to 512 KiB, attached to the terminal for good. The
+// bound sits between the old and new figures for a full 80x24 terminal
+// with 1000 lines of scrollback: about 1.54 MiB before, 1.10 MiB after.
+func TestParseBufferIsNotKeptPerTerminal(t *testing.T) {
+	heap := func() uint64 {
+		runtime.GC()
+		runtime.GC()
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		return m.HeapAlloc
+	}
+	chunk := []byte(strings.Repeat(strings.Repeat("x", 79)+"\r\n", 1100))
+	const n = 5
+	before := heap()
+	terms := make([]*Terminal, n)
+	for i := range terms {
+		terms[i] = newTestTerminal(80, 24)
+		terms[i].Write(chunk)
+	}
+	each := (heap() - before) / n
+	runtime.KeepAlive(terms)
+	if each > 1300<<10 {
+		t.Errorf("%d KiB per terminal", each>>10)
 	}
 }
