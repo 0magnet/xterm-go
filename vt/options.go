@@ -68,6 +68,14 @@ type Options struct {
 	MirrorGlyph func(string) bool
 	// LetterSpacing in px. Default: 0.
 	LetterSpacing float64
+	// AllowTransparency lets the WebGL renderer draw glyphs for a theme
+	// background with alpha (#rrggbbaa, rgba()), so the default background
+	// can be translucent and show what is behind the terminal while text and
+	// explicitly colored backgrounds stay opaque. Without it glyphs are
+	// rasterized onto the opaque background and their antialiased edges keep
+	// a fringe of it. Set it before Open (or before EnableWebGL), as in
+	// xterm.js; enabling it can cost some performance. Default: false.
+	AllowTransparency bool
 	// Theme colors (CSS color strings; empty = defaults).
 	Theme Theme
 }

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"syscall/js"
 	"testing"
+
+	"github.com/0magnet/xterm-go/vt"
 )
 
 // glContext builds a real WebGL 2 context to test against, or skips.
@@ -290,5 +292,26 @@ func TestAtlasPageGrowsOnRepeatedOverflow(t *testing.T) {
 	}
 	if a.pageSize != atlasPageSizeMax {
 		t.Errorf("pageSize = %d, want it capped at %d", a.pageSize, atlasPageSizeMax)
+	}
+}
+
+// An underlined cell on the default background carries a flag in its bg word
+// and nothing else; it must not get an opaque default-color rectangle, or a
+// translucent theme background turns solid behind every underline.
+func TestDefaultBackgroundWithFlagsDrawsNoRectangle(t *testing.T) {
+	if needsBgRect(vt.BgHasExtended, 0, false) {
+		t.Error("flag-only default bg needs a rectangle")
+	}
+	if needsBgRect(0, 0, false) {
+		t.Error("default bg needs a rectangle")
+	}
+	if !needsBgRect(vt.AttrCMP16|4, 0, false) {
+		t.Error("palette bg drew no rectangle")
+	}
+	if !needsBgRect(vt.AttrCMRGB|0x102030, 0, false) {
+		t.Error("RGB bg drew no rectangle")
+	}
+	if !needsBgRect(vt.BgHasExtended, vt.FgInverse, true) {
+		t.Error("inverse cell drew no rectangle")
 	}
 }

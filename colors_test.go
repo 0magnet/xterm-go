@@ -76,3 +76,57 @@ func TestSelectionForegroundIsOptional(t *testing.T) {
 		t.Errorf("got %q, want %q", fg, "#ff0000")
 	}
 }
+
+// A translucent theme background keeps its alpha where the default
+// background is drawn, and loses it wherever it becomes a text or cursor
+// color (ThemeService, DomRenderer's INVERTED_DEFAULT_COLOR).
+func TestTranslucentBackground(t *testing.T) {
+	for _, tc := range []struct {
+		in    string
+		rgb   uint32
+		alpha float64
+	}{
+		{"#00000080", 0x000000, 0x80 / 255.0},
+		{"#1028", 0x110022, 0x88 / 255.0},
+		{"rgba(16, 32, 48, 0.5)", 0x102030, 0.5},
+		{"#102030", 0x102030, 1},
+		{"not a color", 0xffffff, 1},
+	} {
+		rgb, alpha := cssToRGBA(tc.in)
+		if rgb != tc.rgb || alpha-tc.alpha > 0.001 || tc.alpha-alpha > 0.001 {
+			t.Errorf("cssToRGBA(%q) = %06x %v, want %06x %v", tc.in, rgb, alpha, tc.rgb, tc.alpha)
+		}
+		if got := cssToRGB(tc.in); got != tc.rgb {
+			t.Errorf("cssToRGB(%q) = %06x, want %06x", tc.in, got, tc.rgb)
+		}
+	}
+
+	if got := opaqueCSS("rgba(16, 32, 48, 0.5)"); got != "#102030" {
+		t.Errorf("opaqueCSS(rgba) = %q", got)
+	}
+	if got := opaqueCSS("#102030"); got != "#102030" {
+		t.Errorf("opaqueCSS(opaque) = %q", got)
+	}
+
+	cs := NewColorSet(vt.Theme{Background: "#10203080", Foreground: "#eeeeee"})
+	if cs.Background != "#10203080" {
+		t.Errorf("Background = %q, want the theme value with its alpha", cs.Background)
+	}
+	if cs.CursorAccent != "#102030" {
+		t.Errorf("CursorAccent = %q, want the background made opaque", cs.CursorAccent)
+	}
+	if cs.Cursor != "#eeeeee" {
+		t.Errorf("Cursor = %q", cs.Cursor)
+	}
+	// white at 0.3 over the background's color, alpha ignored
+	if _, a := cssToRGBA(cs.SelectionBgOpaque); a != 1 {
+		t.Errorf("SelectionBgOpaque %q is not opaque", cs.SelectionBgOpaque)
+	}
+
+	attr := vt.NewAttributeData()
+	attr.Fg |= vt.FgInverse
+	fg, bg := cs.ResolveCellColors(attr)
+	if fg != "#102030" || bg != "#eeeeee" {
+		t.Errorf("inverse default cell = fg %q bg %q, want an opaque background as text", fg, bg)
+	}
+}

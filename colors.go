@@ -114,6 +114,11 @@ func NewColorSet(theme vt.Theme) *ColorSet {
 	if theme.CursorAccent != "" {
 		cs.CursorAccent = theme.CursorAccent
 	}
+	// ThemeService blends both cursor colors over the background, so they are
+	// opaque even when the background is not: a translucent theme background
+	// must not leave the block cursor, or the text under it, see-through.
+	cs.Cursor = compositeOver(cs.Cursor, cs.Background)
+	cs.CursorAccent = compositeOver(cs.CursorAccent, cs.Background)
 	if theme.SelectionBackground != "" {
 		cs.SelectionBg = theme.SelectionBackground
 	}
@@ -183,6 +188,19 @@ func parseRGBA(css string) (r, g, b int, alpha float64, ok bool) {
 		return ch[0], ch[1], ch[2], alpha, true
 	}
 
+	// #rgba: the short alpha form css.toColor also reads.
+	if len(s) == 5 && s[0] == '#' {
+		var ch [4]int
+		for i := 0; i < 4; i++ {
+			v, err := strconv.ParseUint(s[1+i:2+i], 16, 8)
+			if err != nil {
+				return 0, 0, 0, 0, false
+			}
+			ch[i] = int(v) * 0x11
+		}
+		return ch[0], ch[1], ch[2], float64(ch[3]) / 255, true
+	}
+
 	// #rrggbbaa: CSS's own alpha form, which the X11 parser reads as an
 	// invalid length rather than as a color with an alpha channel.
 	if len(s) == 9 && s[0] == '#' {
@@ -204,6 +222,34 @@ func parseRGBA(css string) (r, g, b int, alpha float64, ok bool) {
 }
 
 func clamp255(v int) int { return min(max(v, 0), 255) }
+
+// cssToRGBA parses a CSS color to 0xRRGGBB plus its alpha (0-1). An
+// unreadable color is opaque white, the value the WebGL renderer has always
+// fallen back to.
+func cssToRGBA(css string) (rgb uint32, alpha float64) {
+	r, g, b, a, ok := parseRGBA(css)
+	if !ok {
+		return 0xFFFFFF, 1
+	}
+	return uint32(r)<<16 | uint32(g)<<8 | uint32(b), a // #nosec G115 -- channels are clamped to 0-255
+}
+
+// cssToRGB parses a CSS color to 0xRRGGBB, dropping any alpha: the
+// color.opaque of upstream.
+func cssToRGB(css string) uint32 {
+	rgb, _ := cssToRGBA(css)
+	return rgb
+}
+
+// opaqueCSS is css with its alpha dropped (color.opaque). A color that cannot
+// be read is returned as it stands.
+func opaqueCSS(css string) string {
+	r, g, b, a, ok := parseRGBA(css)
+	if !ok || a >= 1 {
+		return css
+	}
+	return rgbCSS([3]int{r, g, b})
+}
 
 // rgbCSS renders a color as #rrggbb.
 func rgbCSS(c [3]int) string {
@@ -253,7 +299,10 @@ func (cs *ColorSet) ResolveCellColors(attr *vt.AttributeData) (fg, bg string) {
 			fg = cs.Foreground
 		}
 		if bg == "" {
-			bg = cs.Background
+			// The default background becomes text here, and text is never
+			// translucent: DomRenderer styles INVERTED_DEFAULT_COLOR text
+			// with color.opaque(background).
+			bg = opaqueCSS(cs.Background)
 		}
 		fg, bg = bg, fg
 	}

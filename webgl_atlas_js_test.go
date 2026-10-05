@@ -3,6 +3,7 @@
 package xterm
 
 import (
+	"syscall/js"
 	"testing"
 
 	"github.com/0magnet/xterm-go/vt"
@@ -69,5 +70,61 @@ func TestCombinedCharDoesNotOverrunTmpCanvas(t *testing.T) {
 		if w := a.tmpCanvas.Get("width").Int(); int(g.sizeX) > w {
 			t.Errorf("%q: sizeX %v exceeds temp canvas width %d", chars, g.sizeX, w)
 		}
+	}
+}
+
+func TestCompletelyTransparent(t *testing.T) {
+	pix := make([]byte, 4*4)
+	for i := range pix {
+		if i%4 != 3 {
+			pix[i] = 0xff // color without coverage is still nothing
+		}
+	}
+	if !completelyTransparent(pix) {
+		t.Error("zero-alpha pixels reported as drawn")
+	}
+	pix[7] = 1
+	if completelyTransparent(pix) {
+		t.Error("a pixel with alpha reported as empty")
+	}
+}
+
+// With allowTransparency a glyph is rasterized on a transparent background:
+// its antialiased edges carry partial alpha in the text color instead of a
+// blend with the (translucent) theme background baked in at full alpha.
+func TestTransparentAtlasLeavesBackgroundOut(t *testing.T) {
+	a := atlasForTest(t, 10, 20)
+	a.dispose()
+	cfg := a.cfg
+	cfg.allowTransparency = true
+	cfg.colors = NewColorSet(vt.Theme{Background: "#00000080", Foreground: "#ffffff"})
+	a = newTextureAtlas(cfg)
+	defer a.dispose()
+
+	g := a.getRasterizedGlyph('M', 0, 0, 0)
+	if g == nullRasterizedGlyph {
+		t.Fatal("M rasterized empty")
+	}
+	data := a.ctx.Call("getImageData", g.texPosX, g.texPosY, g.sizeX, g.sizeY).Get("data")
+	pix := make([]byte, data.Get("length").Int())
+	js.CopyBytesToGo(pix, data)
+	partial := 0
+	for off := 0; off+3 < len(pix); off += 4 {
+		al := pix[off+3]
+		if al == 0 {
+			continue
+		}
+		if al < 255 {
+			partial++
+		}
+		// 2D canvases store premultiplied color, so a faint pixel reads back
+		// with a little rounding; a baked-in black background would read as
+		// dark grey at full alpha instead.
+		if al > 64 && (pix[off] < 200 || pix[off+1] < 200 || pix[off+2] < 200) {
+			t.Fatalf("pixel %d is rgba(%d,%d,%d,%d): background baked in", off/4, pix[off], pix[off+1], pix[off+2], al)
+		}
+	}
+	if partial == 0 {
+		t.Error("no partially transparent edge pixels")
 	}
 }
