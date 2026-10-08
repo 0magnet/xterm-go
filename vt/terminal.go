@@ -67,6 +67,10 @@ type Terminal struct {
 	// OnSixelGeometry, when set, is the text area in device pixels, for
 	// XTSMGRAPHICS to tell a program how big a picture to draw.
 	OnSixelGeometry func() (w, h int)
+	// OnPointerShape fires with the CSS cursor programs asked for over the
+	// terminal with OSC 22, or "" for the terminal's own, whenever it may
+	// have changed: when set, at a screen switch, at a full reset.
+	OnPointerShape func(css string)
 }
 
 // NewTerminal creates a headless terminal. Pass nil for defaults.
@@ -178,6 +182,11 @@ func NewTerminal(options *Options) *Terminal {
 	t.inputHandler.OnSixel = func(img *SixelImage) {
 		if t.OnSixel != nil {
 			t.OnSixel(img)
+		}
+	}
+	t.inputHandler.OnPointerShape = func(css string) {
+		if t.OnPointerShape != nil {
+			t.OnPointerShape(css)
 		}
 	}
 	t.inputHandler.sixelWanted = func() bool { return t.OnSixel != nil }

@@ -398,6 +398,12 @@ func (t *Terminal) wireCoreEvents() {
 		}
 	}
 	t.wireSixel()
+	// OSC 22: the pointer a program asked for, over the screen. Inline, so
+	// it outranks the stylesheet's I-beam and the arrow it shows when a
+	// program has the mouse; "" hands the choice back to those.
+	t.Core.OnPointerShape = func(css string) {
+		t.screen.Get("style").Set("cursor", css)
+	}
 	t.Core.OnColor = func(events []vt.ColorEvent) {
 		changed := false
 		for _, e := range events {

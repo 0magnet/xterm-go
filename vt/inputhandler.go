@@ -235,6 +235,12 @@ type InputHandler struct {
 	// sixelWanted, when set, says whether OnSixel goes anywhere: the
 	// Terminal forwards it, and only an embedder listening there can draw.
 	sixelWanted func() bool
+
+	// OnPointerShape is told the CSS cursor programs have asked for with
+	// OSC 22 (pointer.go), or "" for the terminal's own.
+	OnPointerShape func(css string)
+	// pointerMain and pointerAlt are each screen's stack of pointer shapes.
+	pointerMain, pointerAlt []string
 }
 
 // NewInputHandler creates the handler and registers all sequence
@@ -263,6 +269,12 @@ func NewInputHandler(bufferService *BufferService, charsetService *CharsetServic
 			prevActivate(active, inactive)
 		}
 		h.activeBuffer = active
+		// The alternate screen is new each time it is entered, and so is its
+		// pointer.
+		if active == bufferService.Buffers.Normal() {
+			h.pointerAlt = h.pointerAlt[:0]
+		}
+		h.pointerChanged()
 	}
 
 	p := h.parser
@@ -351,6 +363,7 @@ func NewInputHandler(bufferService *BufferService, charsetService *CharsetServic
 	p.RegisterOscHandler(10, NewOscHandler(h.SetOrReportFgColor))
 	p.RegisterOscHandler(11, NewOscHandler(h.SetOrReportBgColor))
 	p.RegisterOscHandler(12, NewOscHandler(h.SetOrReportCursorColor))
+	p.RegisterOscHandler(22, NewOscHandler(h.SetPointerShape))
 	p.RegisterOscHandler(104, NewOscHandler(h.RestoreIndexedColor))
 	p.RegisterOscHandler(110, NewOscHandler(h.RestoreFgColor))
 	p.RegisterOscHandler(111, NewOscHandler(h.RestoreBgColor))
@@ -2156,6 +2169,8 @@ func (h *InputHandler) Reset() {
 	h.curAttrData = NewAttributeData()
 	h.eraseAttrDataInternal = NewAttributeData()
 	h.sixelPalette = DefaultSixelPalette()
+	h.pointerMain, h.pointerAlt = nil, nil
+	h.pointerChanged()
 }
 
 // eraseAttrData implements the back_color_erase feature: erased cells
