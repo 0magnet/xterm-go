@@ -324,3 +324,13 @@ func (cs *ColorSet) UnderlineColor(attr *vt.AttributeData) string {
 	}
 	return ""
 }
+
+// xParseColor writes 0xRRGGBB as XParseColor's rgb:rrrr/gggg/bbbb, the form
+// xterm answers a color query in (each channel scaled to 16 bits).
+func xParseColor(rgb uint32) string {
+	ch := func(v uint32) string {
+		s := strconv.FormatUint(uint64(v*0x101), 16)
+		return strings.Repeat("0", 4-len(s)) + s
+	}
+	return "rgb:" + ch(rgb>>16&0xff) + "/" + ch(rgb>>8&0xff) + "/" + ch(rgb&0xff)
+}

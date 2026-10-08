@@ -25,6 +25,9 @@ type Options struct {
 	ReflowCursorLine bool
 	// TermName reported by DA sequences. Default: "xterm".
 	TermName string
+	// XTVersion is the name and version XTVERSION (CSI > q) reports, as
+	// "name(version)". Default: "xterm-go".
+	XTVersion string
 	// CursorStyle: "block", "underline" or "bar". Default: "block".
 	CursorStyle string
 	// ScrollOnUserInput snaps the viewport to the bottom on input.
@@ -156,6 +159,7 @@ func NewOptions() *Options {
 		LineHeight:            1.0,
 		LetterSpacing:         0,
 		TermName:              "xterm",
+		XTVersion:             "xterm-go",
 		CursorStyle:           "block",
 		ScrollOnUserInput:     true,
 		ScrollSensitivity:     1,
