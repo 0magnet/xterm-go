@@ -101,6 +101,8 @@ type Terminal struct {
 	menu     *contextMenu
 	// a11y is the screen reader support, while it is on (a11y_js.go).
 	a11y *accessibility
+	// touch is the one-finger gesture in progress (touch_js.go).
+	touch touchState
 
 	cellW, cellH float64
 	// images are the inline pictures, in imgLayer (images.go).
@@ -662,6 +664,7 @@ func (t *Terminal) wireDomEvents() {
 	// watched on the document.
 	t.wireSelection()
 	t.wireContextMenu()
+	t.wireTouch()
 
 	// wheel: scroll our own viewport (or report to the app)
 	t.element.Call("addEventListener", "wheel", t.fn(func(_ js.Value, args []js.Value) any {
@@ -1229,6 +1232,9 @@ func ensureStylesheet() {
 .xterm .xterm-viewport::-webkit-scrollbar-thumb:hover { background: #6b727c; }
 .xterm .xterm-viewport::-webkit-scrollbar-corner { background: transparent; }
 .xterm .xterm-screen { position: relative; z-index: 1; cursor: text; }
+/* One finger over the screen is the terminal's (touch_js.go); two are the
+   browser's, for zooming the page. */
+.xterm .xterm-screen { touch-action: pinch-zoom; }
 /* When mouse events are enabled (eg. tmux), revert to the standard pointer
    cursor. The clicks belong to the application now rather than to the
    selection, and an I-beam over a full-screen UI offers the wrong thing. */
