@@ -223,6 +223,18 @@ type InputHandler struct {
 	OnScroll                      func(ydisp int)
 	OnTitleChange                 func(title string)
 	OnColor                       func(events []ColorEvent)
+	// OnSixel receives each sixel picture (sixel.go). Sixel is decoded, and
+	// advertised, only while it is set and Options.Sixel is on.
+	OnSixel func(img *SixelImage)
+	// OnSixelGeometry, when set, is the text area in pixels, which is how
+	// big a picture XTSMGRAPHICS tells a program to draw.
+	OnSixelGeometry func() (w, h int)
+
+	// sixelPalette is the color registers, shared by every sixel picture.
+	sixelPalette SixelPalette
+	// sixelWanted, when set, says whether OnSixel goes anywhere: the
+	// Terminal forwards it, and only an embedder listening there can draw.
+	sixelWanted func() bool
 }
 
 // NewInputHandler creates the handler and registers all sequence
@@ -371,6 +383,9 @@ func NewInputHandler(bufferService *BufferService, charsetService *CharsetServic
 
 	// DCS handler
 	p.RegisterDcsHandler(FunctionID{Intermediates: "$", Final: "q"}, NewDcsHandler(h.RequestStatusString))
+	p.RegisterDcsHandler(FunctionID{Final: "q"}, &sixelHandler{h: h})
+	p.RegisterCsiHandler(FunctionID{Prefix: "?", Final: "S"}, h.GraphicsAttributes)
+	h.sixelPalette = DefaultSixelPalette()
 
 	return h
 }
@@ -1188,7 +1203,12 @@ func (h *InputHandler) SendDeviceAttributesPrimary(params *Params) bool {
 	if paramAt(params, 0) > 0 {
 		return true
 	}
-	if h.is("xterm") || h.is("rxvt-unicode") || h.is("screen") {
+	if h.sixelActive() {
+		// What xterm.js's image addon answers: a VT220 (62) with sixel (4),
+		// national charsets (9) and ANSI color (22). The 4 is how a program
+		// finds out it may draw sixel.
+		h.coreService.TriggerDataEvent(c0ESC+"[?62;4;9;22c", false)
+	} else if h.is("xterm") || h.is("rxvt-unicode") || h.is("screen") {
 		h.coreService.TriggerDataEvent(c0ESC+"[?1;2c", false)
 	} else if h.is("linux") {
 		h.coreService.TriggerDataEvent(c0ESC+"[?6c", false)
@@ -2135,6 +2155,7 @@ func (h *InputHandler) FullReset() bool {
 func (h *InputHandler) Reset() {
 	h.curAttrData = NewAttributeData()
 	h.eraseAttrDataInternal = NewAttributeData()
+	h.sixelPalette = DefaultSixelPalette()
 }
 
 // eraseAttrData implements the back_color_erase feature: erased cells

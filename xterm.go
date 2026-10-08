@@ -397,6 +397,7 @@ func (t *Terminal) wireCoreEvents() {
 			t.Core.Input("\x1b[4;"+strconv.Itoa(px(t.cellH*float64(t.Core.Rows())))+";"+strconv.Itoa(px(t.cellW*float64(t.Core.Cols())))+"t", false)
 		}
 	}
+	t.wireSixel()
 	t.Core.OnColor = func(events []vt.ColorEvent) {
 		changed := false
 		for _, e := range events {

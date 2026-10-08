@@ -60,6 +60,13 @@ type Terminal struct {
 	// OnProtocolChange fires with the mouse event mask needed by the
 	// active mouse protocol.
 	OnProtocolChange func(events int)
+	// OnSixel receives each sixel picture a program draws. Sixel is decoded,
+	// and DA1 says the terminal can draw it, only while this is set and
+	// Options.Sixel is on.
+	OnSixel func(img *SixelImage)
+	// OnSixelGeometry, when set, is the text area in device pixels, for
+	// XTSMGRAPHICS to tell a program how big a picture to draw.
+	OnSixelGeometry func() (w, h int)
 }
 
 // NewTerminal creates a headless terminal. Pass nil for defaults.
@@ -167,6 +174,18 @@ func NewTerminal(options *Options) *Terminal {
 		if t.OnSendFocus != nil {
 			t.OnSendFocus()
 		}
+	}
+	t.inputHandler.OnSixel = func(img *SixelImage) {
+		if t.OnSixel != nil {
+			t.OnSixel(img)
+		}
+	}
+	t.inputHandler.sixelWanted = func() bool { return t.OnSixel != nil }
+	t.inputHandler.OnSixelGeometry = func() (int, int) {
+		if t.OnSixelGeometry != nil {
+			return t.OnSixelGeometry()
+		}
+		return 0, 0
 	}
 	t.inputHandler.OnScroll = func(ydisp int) {
 		if t.OnScroll != nil {
