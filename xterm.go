@@ -762,6 +762,23 @@ func (t *Terminal) Paste(data string) {
 	t.Core.Input(data, true)
 }
 
+// ScrollToPreviousPrompt scrolls the last shell prompt above the view to its
+// top, from the OSC 133 marks a shell writes (vt/semantic.go). It reports
+// whether there was one.
+func (t *Terminal) ScrollToPreviousPrompt() bool { return t.Core.ScrollToPreviousPrompt() }
+
+// ScrollToNextPrompt scrolls the next prompt below the top of the view to
+// the top, or to the bottom when there is none; it reports whether the view
+// moved.
+func (t *Terminal) ScrollToNextPrompt() bool { return t.Core.ScrollToNextPrompt() }
+
+// LastCommandOutput is what the last finished command printed between its
+// OSC 133 C and D marks, its exit status (-1 if the shell gave none), and
+// whether there is one: false before any, or once its lines are gone.
+func (t *Terminal) LastCommandOutput() (text string, exit int, ok bool) {
+	return t.Core.LastCommandOutput()
+}
+
 // Write feeds pty output (UTF-8 bytes) into the terminal.
 func (t *Terminal) Write(data []byte) {
 	t.Core.Write(data)

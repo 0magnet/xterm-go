@@ -241,6 +241,8 @@ type InputHandler struct {
 	OnPointerShape func(css string)
 	// pointerMain and pointerAlt are each screen's stack of pointer shapes.
 	pointerMain, pointerAlt []string
+	// commands are the OSC 133 marks, oldest first (semantic.go).
+	commands []*commandMark
 }
 
 // NewInputHandler creates the handler and registers all sequence
@@ -364,6 +366,7 @@ func NewInputHandler(bufferService *BufferService, charsetService *CharsetServic
 	p.RegisterOscHandler(11, NewOscHandler(h.SetOrReportBgColor))
 	p.RegisterOscHandler(12, NewOscHandler(h.SetOrReportCursorColor))
 	p.RegisterOscHandler(22, NewOscHandler(h.SetPointerShape))
+	p.RegisterOscHandler(133, NewOscHandler(h.SemanticPrompt))
 	p.RegisterOscHandler(104, NewOscHandler(h.RestoreIndexedColor))
 	p.RegisterOscHandler(110, NewOscHandler(h.RestoreFgColor))
 	p.RegisterOscHandler(111, NewOscHandler(h.RestoreBgColor))
@@ -2170,6 +2173,7 @@ func (h *InputHandler) Reset() {
 	h.eraseAttrDataInternal = NewAttributeData()
 	h.sixelPalette = DefaultSixelPalette()
 	h.pointerMain, h.pointerAlt = nil, nil
+	h.resetCommands()
 	h.pointerChanged()
 }
 
