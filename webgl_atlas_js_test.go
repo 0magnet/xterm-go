@@ -128,3 +128,20 @@ func TestTransparentAtlasLeavesBackgroundOut(t *testing.T) {
 		t.Error("no partially transparent edge pixels")
 	}
 }
+
+// TestDisposeReleasesThePage checks a disposed atlas keeps no pixels. Its
+// canvas is not freed when it is removed, only when it is collected, and Go
+// holds it until its own collector gets round to it; an atlas rebuilt on a
+// resize kept a whole page alive beside the new one until then.
+func TestDisposeReleasesThePage(t *testing.T) {
+	a := atlasForTest(t, 9, 20)
+	if w := a.canvas.Get("width").Int(); w != atlasPageSize {
+		t.Fatalf("a new page is %d wide, want %d", w, atlasPageSize)
+	}
+	a.dispose()
+	for name, c := range map[string]js.Value{"page": a.canvas, "tmp": a.tmpCanvas} {
+		if w, h := c.Get("width").Int(), c.Get("height").Int(); w != 0 || h != 0 {
+			t.Errorf("disposed %s canvas is still %dx%d", name, w, h)
+		}
+	}
+}
